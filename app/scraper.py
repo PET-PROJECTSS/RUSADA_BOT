@@ -41,7 +41,7 @@ class ScraperBot:
                 self.db.close()
 
     async def _login(self, page, email: str, password: str) -> bool:
-        await page.goto(self.settings.rusada_url)
+        await page.goto(self.settings.rusada_url, wait_until="domcontentloaded")
         if await page.locator('a[href*="logout"]').count():
             return True
         try:
@@ -61,7 +61,7 @@ class ScraperBot:
             return False
 
     async def _scrape(self, page, max_iterations: int) -> None:
-        await page.goto(f"{self.settings.rusada_url}/course/{self.settings.default_course_id}")
+        await page.goto(f"{self.settings.rusada_url}/course/{self.settings.default_course_id}", wait_until="domcontentloaded")
         await asyncio.sleep(3)
 
         for i in range(1, max_iterations + 1):

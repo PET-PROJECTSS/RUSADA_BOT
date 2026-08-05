@@ -69,7 +69,7 @@ class RusadaBot:
     async def login(self, email: str, password: str) -> bool:
         page = self._page
         logger.info("Login: %s", email)
-        await page.goto(self.settings.rusada_url)
+        await page.goto(self.settings.rusada_url, wait_until="domcontentloaded")
 
         if await page.locator('a[href*="logout"]').count():
             return True
@@ -97,10 +97,10 @@ class RusadaBot:
     async def _check_and_switch_account(self, page, select_account_cb) -> None:
         logger.info("Checking linked accounts")
         if page.url.rstrip("/") != self.settings.rusada_url.rstrip("/"):
-            await page.goto(self.settings.rusada_url)
+            await page.goto(self.settings.rusada_url, wait_until="domcontentloaded")
 
         try:
-            await page.wait_for_load_state("networkidle")
+            await page.wait_for_load_state("domcontentloaded")
         except Exception:
             pass
 
@@ -144,9 +144,9 @@ class RusadaBot:
             target_href = choice.get("href") or ""
             full_url = target_href if target_href.startswith("http") else f"{self.settings.rusada_url}{target_href}"
             logger.info("Switching to: %s", choice.get("name"))
-            await page.goto(full_url)
+            await page.goto(full_url, wait_until="domcontentloaded")
             try:
-                await page.wait_for_load_state("networkidle")
+                await page.wait_for_load_state("domcontentloaded")
             except Exception:
                 pass
             await asyncio.sleep(2)
@@ -155,7 +155,7 @@ class RusadaBot:
 
     async def _process_course(self, page) -> str | None:
         logger.info("Navigating to course")
-        await page.goto(f"{self.settings.rusada_url}/course/{self.settings.default_course_id}")
+        await page.goto(f"{self.settings.rusada_url}/course/{self.settings.default_course_id}", wait_until="domcontentloaded")
         await asyncio.sleep(3)
 
         if await page.locator('a[href*="certificate"], a[href*=".pdf"]').filter(has_text="Скачать").count():
@@ -242,7 +242,7 @@ class RusadaBot:
         try:
             await next_btn.click(force=True)
             try:
-                await page.wait_for_load_state("networkidle", timeout=5000)
+                await page.wait_for_load_state("domcontentloaded", timeout=5000)
             except Exception:
                 pass
             await asyncio.sleep(3)
@@ -321,7 +321,7 @@ class RusadaBot:
             except Exception:
                 pass
         try:
-            await page.wait_for_load_state("networkidle")
+            await page.wait_for_load_state("domcontentloaded")
         except Exception:
             pass
 
