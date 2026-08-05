@@ -1,0 +1,58 @@
+name: Smoke test RUSADA_BOT
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "RUSADA email (empty = container .env)"
+        required: false
+        default: ""
+        type: string
+      password:
+        description: "RUSADA password (empty = container .env)"
+        required: false
+        default: ""
+        type: string
+  workflow_run:
+    workflows: ["Deploy RUSADA_BOT to Ubuntu"]
+    types: [completed]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Run smoke test
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -e
+            cd /opt/projects/rusada-bot
+            ARGS=""
+            if [ -n "${{ inputs.email }}" ]; then ARGS="$ARGS --email ${{ inputs.email }}"; fi
+            if [ -n "${{ inputs.password }}" ]; then ARGS="$ARGS --password ${{ inputs.password }}"; fi
+            docker compose exec -T app python scripts/smoke_test.py $ARGS
+
+      - name: Notify Telegram (success)
+        if: success()
+        uses: appleboy/telegram-action@master
+        with:
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message: |
+            ✅ Smoke test RUSADA_BOT прошёл
+            Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Notify Telegram (failure)
+        if: failure()
+        uses: appleboy/telegram-action@master
+        with:
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message: |
+            ❌ Smoke test RUSADA_BOT упал
+            Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

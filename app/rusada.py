@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import time
 from datetime import datetime
 
 from playwright.async_api import async_playwright
@@ -19,6 +20,53 @@ _START_BUTTONS = [
     "НАЧАТЬ",
     "ВПЕРЕД",
 ]
+
+_BLOCKED_HOSTS = (
+    "recaptcha",
+    "gstatic.com",
+    "mc.yandex.ru",
+    "metrika",
+    "google-analytics",
+    "googletagmanager",
+)
+
+_BLOCKED_RESOURCE_TYPES = ("image", "font", "media")
+
+_LOGIN_MARKERS = (
+    'a[href*="logout"]',
+    "text=ЛИЧНЫЙ КАБИНЕТ",
+    "text=МОИ УЧЕТНЫЕ ЗАПИСИ",
+    'a[href*="/user/login/child/"]',
+)
+
+
+def logged_in_locator(page):
+    loc = page.locator(_LOGIN_MARKERS[0])
+    for sel in _LOGIN_MARKERS[1:]:
+        loc = loc.or_(page.locator(sel))
+    return loc
+
+
+async def is_logged_in(page) -> bool:
+    return bool(await logged_in_locator(page).count())
+
+
+async def block_route(route) -> None:
+    request = route.request
+    if any(host in request.url for host in _BLOCKED_HOSTS) or request.resource_type in _BLOCKED_RESOURCE_TYPES:
+        await route.abort()
+        return
+    await route.continue_()
+
+
+async def wait_ready(page, timeout_ms: int = 45000) -> None:
+    deadline = time.monotonic() + timeout_ms / 1000
+    while time.monotonic() < deadline:
+        try:
+            await page.evaluate("1")
+            return
+        except Exception:
+            await asyncio.sleep(1)
 
 
 class RusadaBot:
@@ -47,6 +95,7 @@ class RusadaBot:
         )
         self._page = await self._context.new_page()
         self._page.set_default_timeout(self.settings.default_timeout_ms)
+        await self._page.route("**/*", block_route)
 
     async def run(self, email: str, password: str, select_account_cb=None) -> str | None:
         result = None
@@ -69,9 +118,23 @@ class RusadaBot:
     async def login(self, email: str, password: str) -> bool:
         page = self._page
         logger.info("Login: %s", email)
-        await page.goto(self.settings.rusada_url, wait_until="domcontentloaded")
 
-        if await page.locator('a[href*="logout"]').count():
+        for attempt in (1, 2):
+            try:
+                if await self._login_attempt(page, email, password):
+                    return True
+            except Exception as exc:
+                logger.warning("Login attempt %s error: %s", attempt, exc)
+            if attempt == 1:
+                logger.warning("Login attempt %s failed, retrying", attempt)
+        return False
+
+    async def _login_attempt(self, page, email: str, password: str) -> bool:
+        await page.goto(self.settings.rusada_url, wait_until="domcontentloaded", timeout=60000)
+        await wait_ready(page)
+
+        if await is_logged_in(page):
+            logger.info("Already logged in")
             return True
 
         try:
@@ -80,19 +143,51 @@ class RusadaBot:
             pass
 
         if not await page.locator("#loginform-login").is_visible():
-            if await page.locator("text=Вход").first.is_visible():
-                await page.locator("text=Вход").first.click()
+            try:
+                await page.locator('a[href="#login-popup"]').first.click(timeout=10000)
+            except Exception:
+                pass
 
         await page.locator("#loginform-login").fill(email)
         await page.locator("#loginform-password").fill(password)
-        await page.keyboard.press("Enter")
 
+        submit = page.locator("#login-form-modal button[type=submit], #login-form-modal input[type=submit]").first
+        login_ok = False
         try:
-            await page.wait_for_selector('a[href*="logout"]', state="attached", timeout=10000)
-            logger.info("Login successful")
-            return True
+            async with page.expect_response(
+                lambda r: r.request.method == "POST" and r.url.endswith("/user/login") and r.status == 302,
+                timeout=25000,
+            ):
+                try:
+                    await submit.click(timeout=5000)
+                except Exception:
+                    await page.keyboard.press("Enter")
+            login_ok = True
         except Exception:
-            return "login" not in page.url
+            pass
+
+        await asyncio.sleep(2)
+        deadline = time.monotonic() + 15000
+        while time.monotonic() < deadline:
+            if await is_logged_in(page):
+                logger.info("Login successful")
+                return True
+            await asyncio.sleep(2)
+
+        for _ in range(4):
+            try:
+                await page.goto(self.settings.rusada_url, wait_until="domcontentloaded", timeout=60000)
+            except Exception:
+                await asyncio.sleep(3)
+                continue
+            await wait_ready(page)
+            if await is_logged_in(page):
+                logger.info("Login successful")
+                return True
+            await asyncio.sleep(3)
+
+        logger.warning("Login result not detected (url=%s, login_ok=%s)", page.url, login_ok)
+        return False
 
     async def _check_and_switch_account(self, page, select_account_cb) -> None:
         logger.info("Checking linked accounts")

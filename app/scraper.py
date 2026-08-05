@@ -1,12 +1,14 @@
 import argparse
 import asyncio
 import logging
+import time
 
 from playwright.async_api import async_playwright
 
 from app.config import Settings
 from app.db import Database
 from app.logging_setup import setup_logger
+from app.rusada import block_route, is_logged_in, wait_ready
 
 logger = logging.getLogger("RUSADA.scraper")
 
@@ -30,6 +32,7 @@ class ScraperBot:
             )
             page = await context.new_page()
             page.set_default_timeout(self.settings.default_timeout_ms)
+            await page.route("**/*", block_route)
 
             try:
                 if not await self._login(page, email, password):
@@ -41,24 +44,51 @@ class ScraperBot:
                 self.db.close()
 
     async def _login(self, page, email: str, password: str) -> bool:
-        await page.goto(self.settings.rusada_url, wait_until="domcontentloaded")
-        if await page.locator('a[href*="logout"]').count():
+        await page.goto(self.settings.rusada_url, wait_until="domcontentloaded", timeout=60000)
+        await wait_ready(page)
+        if await is_logged_in(page):
             return True
         try:
             await page.locator('text=/Я согласен|Принять/i').click(timeout=2000)
         except Exception:
             pass
         if not await page.locator("#loginform-login").is_visible():
-            if await page.locator("text=Вход").first.is_visible():
-                await page.locator("text=Вход").first.click()
+            try:
+                await page.locator('a[href="#login-popup"]').first.click(timeout=10000)
+            except Exception:
+                pass
         await page.locator("#loginform-login").fill(email)
         await page.locator("#loginform-password").fill(password)
-        await page.keyboard.press("Enter")
+        submit = page.locator("#login-form-modal button[type=submit], #login-form-modal input[type=submit]").first
         try:
-            await page.wait_for_selector('a[href*="logout"]', state="attached", timeout=10000)
-            return True
+            async with page.expect_response(
+                lambda r: r.request.method == "POST" and r.url.endswith("/user/login") and r.status == 302,
+                timeout=25000,
+            ):
+                try:
+                    await submit.click(timeout=5000)
+                except Exception:
+                    await page.keyboard.press("Enter")
         except Exception:
-            return False
+            pass
+        await asyncio.sleep(2)
+        deadline = time.monotonic() + 15000
+        while time.monotonic() < deadline:
+            if await is_logged_in(page):
+                return True
+            await asyncio.sleep(2)
+        for _ in range(4):
+            try:
+                await page.goto(self.settings.rusada_url, wait_until="domcontentloaded", timeout=60000)
+            except Exception:
+                await asyncio.sleep(3)
+                continue
+            await wait_ready(page)
+            if await is_logged_in(page):
+                return True
+            await asyncio.sleep(3)
+        logger.warning("Login result not detected (url=%s)", page.url)
+        return False
 
     async def _scrape(self, page, max_iterations: int) -> None:
         await page.goto(f"{self.settings.rusada_url}/course/{self.settings.default_course_id}", wait_until="domcontentloaded")
