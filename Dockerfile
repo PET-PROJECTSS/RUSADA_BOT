@@ -1,24 +1,18 @@
-FROM python:3.12-slim
+FROM mcr.microsoft.com/playwright/python:v1.62.0-noble
 
-ENV VIRTUAL_ENV=/opt/venv
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+USER root
+
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-RUN python -m venv $VIRTUAL_ENV
-
-WORKDIR /build
+WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN playwright install --with-deps chromium
 
-RUN groupadd --system appuser && useradd --system --no-create-home --gid appuser appuser
-
-WORKDIR /app
 COPY . .
 
 RUN mkdir -p /app/logs /app/screenshots \
+    && useradd --system --no-create-home appuser \
     && chown -R appuser:appuser /app
 
 USER appuser
