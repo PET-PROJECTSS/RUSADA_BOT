@@ -43,6 +43,7 @@ jobs:
               echo "container not healthy after 150s (status=$status)" >&2
               exit 1
             fi
+            sleep 60
             docker compose exec -T app sh -c 'pkill -9 -f smoke_te[s]t 2>/dev/null; pkill -9 -f chrome-headles[s] 2>/dev/null; true'
             ARGS=""
             if [ -n "${{ inputs.email }}" ]; then ARGS="$ARGS --email ${{ inputs.email }}"; fi
