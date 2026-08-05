@@ -13,5 +13,9 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-      - ./logs:/app/logs
-      - ./screenshots:/app/screenshots
+      - logs:/app/logs
+      - screenshots:/app/screenshots
+
+volumes:
+  logs:
+  screenshots:
