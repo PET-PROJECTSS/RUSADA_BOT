@@ -13,7 +13,13 @@ RUN pip install --no-cache-dir playwright==1.62.0 \
     && rm -rf /var/lib/apt/lists/* /root/.cache
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && rm -rf /usr/local/lib/python3.12/site-packages/pip \
+              /usr/local/lib/python3.12/site-packages/pip-*.dist-info \
+              /usr/local/lib/python3.12/site-packages/setuptools \
+              /usr/local/lib/python3.12/site-packages/setuptools-*.dist-info \
+              /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.12 \
+    && find /usr/local/lib/python3.12/site-packages -type d -name __pycache__ -prune -exec rm -rf {} +
 
 COPY . .
 
