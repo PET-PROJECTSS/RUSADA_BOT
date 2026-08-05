@@ -22,7 +22,8 @@ class ScraperBot:
     async def run(self, email: str, password: str, max_iterations: int) -> None:
         async with async_playwright() as p:
             browser = await p.chromium.launch(
-                headless=self.headless, args=["--no-sandbox", "--disable-dev-shm-usage"]
+                headless=self.headless,
+                args=["--no-sandbox", "--disable-dev-shm-usage", "--no-zygote", "--disable-gpu"],
             )
             context = await browser.new_context(
                 viewport={

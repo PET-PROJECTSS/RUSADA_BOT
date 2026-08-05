@@ -84,7 +84,8 @@ class RusadaBot:
 
     async def _launch(self, playwright) -> None:
         self._browser = await playwright.chromium.launch(
-            headless=self.headless, args=["--no-sandbox", "--disable-dev-shm-usage"]
+            headless=self.headless,
+            args=["--no-sandbox", "--disable-dev-shm-usage", "--no-zygote", "--disable-gpu"],
         )
         self._context = await self._browser.new_context(
             viewport={"width": self.settings.viewport_width, "height": self.settings.viewport_height},
