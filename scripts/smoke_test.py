@@ -105,5 +105,9 @@ if __name__ == "__main__":
         print("[test] missing credentials: pass --email/--password or set RUSADA_EMAIL/RUSADA_PASSWORD")
         sys.exit(2)
 
-    rc = asyncio.run(main(email, password, headless=not args.headed))
+    try:
+        rc = asyncio.run(asyncio.wait_for(main(email, password, headless=not args.headed), timeout=240))
+    except asyncio.TimeoutError:
+        print("[test] FAIL: timed out after 240s")
+        rc = 6
     sys.exit(rc)
