@@ -31,12 +31,18 @@ jobs:
           command_timeout: 15m
           script: |
             set -e
+            set -o pipefail
             cd /opt/projects/rusada-bot
             docker compose exec -T app sh -c 'pkill -9 -f smoke_test 2>/dev/null; pkill -9 -f chrome-headless 2>/dev/null; true'
+            for i in $(seq 1 30); do
+              status=$(docker inspect --format='{{.State.Health.Status}}' rusada-bot-app-1 2>/dev/null)
+              if [ "$status" = "healthy" ]; then break; fi
+              sleep 5
+            done
             ARGS=""
             if [ -n "${{ inputs.email }}" ]; then ARGS="$ARGS --email ${{ inputs.email }}"; fi
             if [ -n "${{ inputs.password }}" ]; then ARGS="$ARGS --password ${{ inputs.password }}"; fi
-            timeout 300 docker compose exec -T app python scripts/smoke_test.py $ARGS
+            timeout 300 docker compose exec -T app python scripts/smoke_test.py $ARGS | tee /tmp/smoke_ci.log
             docker compose exec -T app sh -c 'pkill -9 -f smoke_test 2>/dev/null; pkill -9 -f chrome-headless 2>/dev/null; true'
 
       - name: Cleanup stale processes
