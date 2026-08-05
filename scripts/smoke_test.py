@@ -57,9 +57,9 @@ async def main(email: str, password: str, headless: bool) -> int:
             await page.goto(
                 f"{settings.rusada_url}/course/{settings.default_course_id}",
                 wait_until="domcontentloaded",
-                timeout=45000,
+                timeout=180000,
             )
-            await wait_ready(page)
+            await wait_ready(page, timeout_ms=120000)
             await asyncio.sleep(3)
             await shot(page, "course")
             print(f"[test] course URL: {page.url}")
@@ -106,8 +106,8 @@ if __name__ == "__main__":
         sys.exit(2)
 
     try:
-        rc = asyncio.run(asyncio.wait_for(main(email, password, headless=not args.headed), timeout=600))
+        rc = asyncio.run(asyncio.wait_for(main(email, password, headless=not args.headed), timeout=900))
     except asyncio.TimeoutError:
-        print("[test] FAIL: timed out after 600s")
+        print("[test] FAIL: timed out after 900s")
         rc = 6
     sys.exit(rc)

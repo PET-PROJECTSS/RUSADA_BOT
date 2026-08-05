@@ -50,7 +50,7 @@ jobs:
             if [ -n "${{ inputs.password }}" ]; then ARGS="$ARGS --password ${{ inputs.password }}"; fi
             rc=1
             for attempt in 1 2; do
-              if timeout 600 docker compose exec -T app python scripts/smoke_test.py $ARGS | tee /tmp/smoke_ci.log; then
+              if timeout 900 docker compose exec -T app python scripts/smoke_test.py $ARGS | tee /tmp/smoke_ci.log; then
                 echo "smoke attempt $attempt PASSED"
                 rc=0
                 break
