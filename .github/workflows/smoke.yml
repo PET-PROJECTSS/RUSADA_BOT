@@ -33,12 +33,17 @@ jobs:
             set -e
             set -o pipefail
             cd /opt/projects/rusada-bot
-            docker compose exec -T app sh -c 'pkill -9 -f smoke_test 2>/dev/null; pkill -9 -f chrome-headless 2>/dev/null; true'
+            status=""
             for i in $(seq 1 30); do
               status=$(docker inspect --format='{{.State.Health.Status}}' rusada-bot-app-1 2>/dev/null)
               if [ "$status" = "healthy" ]; then break; fi
               sleep 5
             done
+            if [ "$status" != "healthy" ]; then
+              echo "container not healthy after 150s (status=$status)" >&2
+              exit 1
+            fi
+            docker compose exec -T app sh -c 'pkill -9 -f smoke_test 2>/dev/null; pkill -9 -f chrome-headless 2>/dev/null; true'
             ARGS=""
             if [ -n "${{ inputs.email }}" ]; then ARGS="$ARGS --email ${{ inputs.email }}"; fi
             if [ -n "${{ inputs.password }}" ]; then ARGS="$ARGS --password ${{ inputs.password }}"; fi
