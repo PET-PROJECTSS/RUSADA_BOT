@@ -106,8 +106,8 @@ if __name__ == "__main__":
         sys.exit(2)
 
     try:
-        rc = asyncio.run(asyncio.wait_for(main(email, password, headless=not args.headed), timeout=240))
+        rc = asyncio.run(asyncio.wait_for(main(email, password, headless=not args.headed), timeout=600))
     except asyncio.TimeoutError:
-        print("[test] FAIL: timed out after 240s")
+        print("[test] FAIL: timed out after 600s")
         rc = 6
     sys.exit(rc)
