@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.log
+.venv/
+.idea/
+.env
+logs/
+screenshots/
+playwright-report/
+test-results/

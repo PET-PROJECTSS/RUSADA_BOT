@@ -1,0 +1,11 @@
+.git
+.venv
+__pycache__
+*.pyc
+.env
+.idea
+logs
+screenshots
+playwright-report
+test-results
+*.md

@@ -1,0 +1,20 @@
+name: Deploy RUSADA_BOT to Ubuntu
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    uses: PET-PROJECTSS/PET_PROJECTS.ACTIONS/.github/workflows/deploy.yml@main
+    with:
+      project_path: /opt/projects/rusada-bot
+      service_name: RUSADA_BOT
+      repo_ssh_or_https: https://github.com/PET-PROJECTSS/RUSADA_BOT.git
+      migrations_command: ""
+    secrets:
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+      SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
