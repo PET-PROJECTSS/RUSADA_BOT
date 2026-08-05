@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 RUN mkdir -p /app/logs /app/screenshots \
-    && useradd --system --no-create-home appuser \
+    && useradd --system --uid 1000 --no-create-home appuser \
     && chown -R appuser:appuser /app
 
 USER appuser
